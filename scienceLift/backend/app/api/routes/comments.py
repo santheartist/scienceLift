@@ -69,6 +69,20 @@ def enrich_comment(comment: Comment, user_id: Optional[int] = None) -> Dict[str,
     }
 
 
+def enrich_comment_with_replies(comment: Comment, user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Enrich comment with likes count, user like status, and recursively include replies."""
+    enriched = enrich_comment(comment, user_id)
+    
+    # Recursively add nested replies
+    replies = []
+    if hasattr(comment, 'replies') and comment.replies:
+        for reply in comment.replies:
+            replies.append(enrich_comment_with_replies(reply, user_id))
+    enriched['replies'] = replies
+    
+    return enriched
+
+
 @router.get("/{paper_id}/comments", response_model=List[Dict[str, Any]])
 def get_paper_comments(
     paper_id: int,
@@ -77,29 +91,22 @@ def get_paper_comments(
     authorization: str = Header(None),
     db: Session = Depends(get_db)
 ):
-    """Get comments for a paper with nested replies."""
+    """Get comments for a paper with nested replies (all levels)."""
+    from sqlalchemy.orm import joinedload, selectinload
+    
     user_id = get_current_user_id(authorization)
     
-    # Get root comments with relationships loaded
-    root_comments = db.query(Comment).options(
-        joinedload(Comment.author),
-        joinedload(Comment.likes),
-        joinedload(Comment.replies).joinedload(Comment.author),
-        joinedload(Comment.replies).joinedload(Comment.likes)
-    ).filter(
+    # Get root comments with all relationships loaded recursively
+    root_comments = db.query(Comment).filter(
         Comment.paper_id == paper_id,
         Comment.parent_comment_id == None
     ).offset(skip).limit(limit).all()
     
     result = []
     for comment in root_comments:
-        enriched = enrich_comment(comment, user_id)
-        # Add nested replies
-        replies = []
-        if hasattr(comment, 'replies'):
-            for reply in comment.replies:
-                replies.append(enrich_comment(reply, user_id))
-        enriched['replies'] = replies
+        # Load all relationships for this comment
+        db.refresh(comment, ['author', 'likes', 'replies'])
+        enriched = enrich_comment_with_replies(comment, user_id)
         result.append(enriched)
     
     return result
