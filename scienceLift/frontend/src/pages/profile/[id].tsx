@@ -19,6 +19,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (userId) {
@@ -112,7 +113,7 @@ export default function ProfilePage() {
       </div>
 
       <Header />
-      <Sidebar onCategorySelect={() => {}} currentCategory={null} />
+      <Sidebar onCategorySelect={setSelectedCategory} currentCategory={selectedCategory} />
       
       <div className="ml-64 pt-20 px-6 pb-12 relative z-10">
         <div className="max-w-3xl mx-auto">
@@ -199,14 +200,26 @@ export default function ProfilePage() {
 
               {/* Content */}
               <div>
-                {reposts.length === 0 ? (
+                {(selectedCategory 
+                  ? reposts.filter(r => r.paper?.category === selectedCategory) 
+                  : reposts
+                ).length === 0 ? (
                   <div className="text-center py-16 px-6">
-                    <p className="text-gray-600 dark:text-slate-300 text-lg font-medium mb-2">No reposts yet</p>
-                    <p className="text-gray-500 dark:text-slate-400 text-sm">This user hasn't reposted any papers</p>
+                    <p className="text-gray-600 dark:text-slate-300 text-lg font-medium mb-2">
+                      {selectedCategory ? `No ${selectedCategory} reposts` : 'No reposts yet'}
+                    </p>
+                    <p className="text-gray-500 dark:text-slate-400 text-sm">
+                      {selectedCategory 
+                        ? 'This user hasn\'t reposted any papers in this category'
+                        : 'This user hasn\'t reposted any papers'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {reposts.map((repost) => (
+                    {(selectedCategory 
+                      ? reposts.filter(r => r.paper?.category === selectedCategory) 
+                      : reposts
+                    ).map((repost) => (
                       <div key={repost.id} className="bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-purple-500/20 rounded-lg hover:border-blue-300 dark:hover:border-purple-400/50 hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-purple-500/10 transition-all">
                         {repost.paper && (
                           <>
